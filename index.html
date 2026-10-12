@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>TON Telegram Mini App</title>
+  
+  <!-- Подключаем Telegram Web App SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <style>
+    body {
+      background: var(--tg-theme-bg-color, #101522);
+      color: var(--tg-theme-text-color, #ffffff);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      text-align: center;
+      padding: 32px 16px;
+      margin: 0;
+    }
+
+    h2 {
+      margin-top: 12px;
+      font-size: 22px;
+    }
+
+    p {
+      color: var(--tg-theme-hint-color, #aab8cc);
+      font-size: 14px;
+    }
+
+    #status {
+      margin-top: 24px;
+      padding: 16px;
+      background: var(--tg-theme-secondary-bg-color, #1a2235);
+      border-radius: 12px;
+      color: var(--tg-theme-text-color, #aab8cc);
+      word-break: break-all;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>TON Mini App</h2>
+  <p>Интеграция кошелька с нативной кнопкой Telegram</p>
+  
+  <div id="status">Кошелёк не подключён</div>
+
+  <!-- Подключаем TON Connect UI -->
+  <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+  <script>
+    // 1. Инициализируем Telegram Web App
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand(); // Разворачиваем мини-апп на весь экран
+
+    // 2. Инициализируем TON Connect UI
+    // (кнопку не привязываем к DOM-элементу, так как используем MainButton)
+    const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+      manifestUrl: 'https://raw.githubusercontent.com/ton-connect/docs/main/samples/dapps/frontend/public/tonconnect-manifest.json'
+    });
+
+    const statusDiv = document.querySelector("#status");
+    const mainButton = tg.MainButton;
+
+    // Настраиваем Главную кнопку Telegram
+    mainButton.setText("ПОДКЛЮЧИТЬ КОШЕЛЁК");
+    mainButton.color = tg.themeParams.button_color || "#2589ff";
+    mainButton.textColor = tg.themeParams.button_text_color || "#ffffff";
+    mainButton.show();
+
+    // 3. Обработка клика по нативной кнопке Telegram
+    mainButton.onClick(async () => {
+      // Вибрация для отклика (Haptic Feedback)
+      if (tg.HapticFeedback) {
+        tg.HapticFeedback.impactOccurred('medium');
+      }
+
+      try {
+        // Если кошелек еще не подключен, открываем модальное окно TON Connect
+        if (!tonConnectUI.connected) {
+          await tonConnectUI.openModal();
+        } else {
+          // Если уже подключен, можно предложить отключить или запустить другое действие
+          await tonConnectUI.disconnect();
+        }
+      } catch (error) {
+        console.error("Ошибка TON Connect:", error);
+      }
+    });
+
+    // 4. Отслеживание изменения статуса подключения кошелька
+    tonConnectUI.onStatusChange(walletInfo => {
+      if (walletInfo) {
+        const userFriendlyAddress = tonConnectUI.account.address;
+        
+        statusDiv.innerHTML = `
+          <strong>Кошелёк подключён!</strong><br>
+          <span style="color: var(--tg-theme-button-color, #2589ff);">${userFriendlyAddress}</span>
+        `;
+        
+        // Меняем текст нативной кнопки на «Отключить»
+        mainButton.setText("ОТКЛЮЧИТЬ КОШЕЛЁК");
+        
+        // Тактильный успех
+        if (tg.HapticFeedback) {
+          tg.HapticFeedback.notificationOccurred('success');
+        }
+      } else {
+        statusDiv.textContent = "Кошелёк не подключён";
+        mainButton.setText("ПОДКЛЮЧИТЬ КОШЕЛЁК");
+      }
+    });
+  </script>
+</body>
+</html>
